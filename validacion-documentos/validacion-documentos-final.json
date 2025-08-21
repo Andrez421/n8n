@@ -1,0 +1,1023 @@
+{
+  "name": "validacion-documentos-final",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1s8k8d8mfbBlpNu_e2zPEY8P5123isQFV",
+          "mode": "list",
+          "cachedResultName": "Archivos de Matrícula",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1s8k8d8mfbBlpNu_e2zPEY8P5123isQFV"
+        },
+        "event": "folderCreated"
+      },
+      "id": "526d41af-bee1-4fe7-ba68-f9a899987869",
+      "name": "Google Drive Trigger",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "kW52GePU503movBb",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "b5e0090c-6884-4aee-8a86-74b5e3d6bf89",
+      "name": "Wait for Uploads",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "webhookId": "upload-wait",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Configuración centralizada optimizada\nconst config = {\n  sheets: {\n    id: '1irpTXy8D2oysdMdzdaxf9Zk9SSEDtENSFxDAum6F1wM',\n    tab: 'Registro de Matrículas'\n  },\n  \n  // Documentos con lógica de requerimiento simplificada\n  documents: [\n    {\n      key: 'ACTA_DE_COMPROMISO',\n      sheetColumn: 'Enlace Acta',\n      required: 'always',\n      mimeTypes: ['application/pdf'],\n      keywords: ['ACTA', 'COMPROMISO', 'APRENDIZ', 'FICHA', 'FIRMA'],\n      needsSignature: true\n    },\n    {\n      key: 'DOCUMENTO_DE_IDENTIDAD', \n      sheetColumn: 'Enlace Identidad',\n      required: 'always',\n      mimeTypes: ['application/pdf'],\n      keywords: ['CEDULA', 'TARJETA DE IDENTIDAD', 'IDENTIDAD', 'REPUBLICA DE COLOMBIA', 'COLOMBIA'],\n      needsName: true\n    },\n    {\n      key: 'CERTIFICADO_DE_SALUD',\n      sheetColumn: 'Enlace Salud', \n      required: 'always',\n      mimeTypes: ['application/pdf'],\n      keywords: ['ADRES', 'EPS', 'SALUD', 'AFILIADO'],\n      needsName: true\n    },\n    {\n      key: 'CERTIFICADO_DE_ESTUDIO',\n      sheetColumn: 'Enlace Diploma',\n      required: 'always', \n      mimeTypes: ['application/pdf'],\n      keywords: ['DIPLOMA', 'BACHILLER', 'INSTITUCIÓN', 'ACTA DE GRADO']\n    },\n    {\n      key: 'PRUEBAS_ICFES',\n      sheetColumn: 'Enlace ICFES',\n      required: 'tecnologo',\n      mimeTypes: ['application/pdf'], \n      keywords: ['ICFES', 'SABER', 'RESULTADOS', 'PUNTAJE'],\n      needsName: true\n    },\n    {\n      key: 'FOTOGRAFIA',\n      sheetColumn: 'Enlace Foto',\n      required: 'always',\n      mimeTypes: ['image/jpeg', 'image/png'],\n      minSizeBytes: 15000,\n      isPhoto: true\n    },\n    {\n      key: 'REGISTRO_CIVIL', \n      sheetColumn: 'Enlace Registro Civil',\n      required: 'minor',\n      mimeTypes: ['application/pdf'],\n      keywords: ['REGISTRO CIVIL', 'NACIMIENTO', 'NOTARÍA']\n    },\n    {\n      key: 'TRATAMIENTO_DE_DATOS',\n      sheetColumn: 'Enlace Trat. Datos',\n      required: 'minor', \n      mimeTypes: ['application/pdf'],\n      keywords: ['TRATAMIENTO DE DATOS', 'HÁBEAS DATA', 'LEY 1581'],\n      needsSignature: true\n    }\n  ],\n  \n  validation: {\n    minWords: 20,\n    minChars: 100,\n    documentAI: {\n      projectId: '478244911399',\n      location: 'us',\n      processorId: 'f7439ed85d11a95b'\n    }\n  },\n  \n  email: {\n    cc: 'abravop73@gmail.com',\n    subject: 'SENA - Corrección de documentos de matrícula',\n    template: `Estimado(a) {{nombres}} {{apellidos}},\n\nTras revisar los documentos que cargó para el proceso de matrícula, encontramos incidencias que requieren corrección:\n\n{{problemas}}\n\nPor favor, vuelva a cargar los documentos correspondientes mediante el mismo formulario. Le recomendamos verificar que:\n• El archivo sea el solicitado (tipo correcto).\n• El contenido sea legible (sin borrosidad) y completo.\n• El formato sea PDF (salvo la fotografía: JPG o PNG).\n\nAgradecemos realizar el reenvío a la mayor brevedad para no retrasar su matrícula.\n\nSaludos cordiales,\nEquipo de Matrículas SENA`\n  }\n};\n\nreturn [{ json: { config } }];"
+      },
+      "id": "7bf7ec9e-b9c3-4721-b409-9ceba796dd35",
+      "name": "Config Centralizada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer apellidos y nombres del nombre de la carpeta\nconst folderName = $json.name || '';\nconst [apellidos, nombres] = folderName.split(',').map(s => (s || '').trim());\n\nreturn [{\n  json: {\n    folderId: $json.id,\n    folderName,\n    apellidos: apellidos || '',\n    nombres: nombres || ''\n  }\n}];"
+      },
+      "id": "39a208fb-3d52-4b7f-b9f1-5b66ad584b1c",
+      "name": "Parse Folder Name",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1irpTXy8D2oysdMdzdaxf9Zk9SSEDtENSFxDAum6F1wM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Registro de Matrículas"
+        },
+        "options": {}
+      },
+      "id": "a07a09ed-8861-4ea2-884f-12e08891d5dc",
+      "name": "Sheets - Lookup Student",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        224,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "FdAtUHGycZGjic4B",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Buscar estudiante por apellidos y procesar datos\nconst apellidos = $('Parse Folder Name').first().json.apellidos;\nconst allRows = $items().map(item => item.json);\n\n// Buscar estudiante\nconst student = allRows.find(row => {\n  if (!row.Apellidos) return false;\n  const rowApellidos = row.Apellidos.trim().toLowerCase();\n  const searchApellidos = apellidos.trim().toLowerCase();\n  return rowApellidos === searchApellidos || \n         rowApellidos.includes(searchApellidos) || \n         searchApellidos.includes(rowApellidos);\n});\n\nif (!student) {\n  throw new Error(`No se encontró estudiante con apellidos: \"${apellidos}\"`);\n}\n\n// Determinar tipo de programa y edad\nconst tipoPrograma = (student['Tipo de Programa'] || '').toString().toUpperCase();\nconst isTecnologo = tipoPrograma.includes('TECNOLOGO');\n\n// Calcular edad\nfunction calcAge(dateStr) {\n  if (!dateStr) return null;\n  const date = new Date(dateStr);\n  if (isNaN(date)) return null;\n  const now = new Date();\n  let age = now.getFullYear() - date.getFullYear();\n  const m = now.getMonth() - date.getMonth();\n  if (m < 0 || (m === 0 && now.getDate() < date.getDate())) age--;\n  return age;\n}\n\nconst age = calcAge(student['Fecha de Nacimiento']);\nconst isMinor = age !== null ? age < 18 : true; // Por defecto menor si no se puede calcular\n\n// Obtener configuración y determinar documentos requeridos\nconst config = $('Config Centralizada').first().json.config;\nconst requiredDocs = config.documents.filter(doc => {\n  if (doc.required === 'always') return true;\n  if (doc.required === 'tecnologo') return isTecnologo;\n  if (doc.required === 'minor') return isMinor;\n  return false;\n});\n\nreturn [{\n  json: {\n    student,\n    nombres: student.Nombres || '',\n    apellidos: student.Apellidos || '',\n    correo: student.Correo || '',\n    tipoPrograma,\n    isTecnologo,\n    age,\n    isMinor,\n    requiredDocs,\n    folderId: $('Parse Folder Name').first().json.folderId\n  }\n}];"
+      },
+      "id": "8d50b0a3-8e80-4993-980a-fdd9f70f9401",
+      "name": "Process Student Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "filter": {},
+        "options": {}
+      },
+      "id": "d82c39e9-00d0-4c1f-b7fd-12c7fec6ba14",
+      "name": "Get Drive Files",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        0,
+        416
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "kW52GePU503movBb",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar documentos requeridos vs disponibles\nconst studentData = $('Process Student Data').first().json;\nconst files = $items().map(item => item.json);\nconst { requiredDocs, nombres, apellidos, correo } = studentData;\n\n// Función para extraer fileId de URL\nfunction extractFileId(url) {\n  if (!url) return '';\n  const match1 = url.match(/\\/d\\/([a-zA-Z0-9_-]+)/);\n  if (match1) return match1[1];\n  const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);\n  if (match2) return match2[1];\n  if (/^[a-zA-Z0-9_-]{20,}$/.test(url)) return url;\n  return '';\n}\n\n// Normalizar texto\nfunction normalize(text) {\n  return (text || '').toString().trim()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .toUpperCase();\n}\n\n// Procesar cada documento requerido\nconst results = [];\nconst missing = [];\n\nfor (const doc of requiredDocs) {\n  const link = studentData.student[doc.sheetColumn] || '';\n  const fileId = extractFileId(link);\n  \n  // Buscar archivo\n  let file = null;\n  \n  if (fileId) {\n    file = files.find(f => f.id === fileId);\n  }\n  \n  if (!file) {\n    // Buscar por nombre esperado\n    const expectedNames = {\n      'ACTA_DE_COMPROMISO': 'ACTA DE COMPROMISO',\n      'DOCUMENTO_DE_IDENTIDAD': 'DOCUMENTO DE IDENTIDAD', \n      'CERTIFICADO_DE_SALUD': 'CERTIFICADO DE SALUD',\n      'CERTIFICADO_DE_ESTUDIO': 'CERTIFICADO DE ESTUDIO',\n      'PRUEBAS_ICFES': 'PRUEBAS ICFES',\n      'FOTOGRAFIA': 'FOTOGRAFIA',\n      'REGISTRO_CIVIL': 'REGISTRO CIVIL',\n      'TRATAMIENTO_DE_DATOS': 'TRATAMIENTO DE DATOS'\n    };\n    \n    const expectedName = normalize(expectedNames[doc.key] || '');\n    if (expectedName) {\n      file = files.find(f => {\n        const fileName = normalize(f.name);\n        return fileName === expectedName || fileName.startsWith(expectedName);\n      });\n    }\n    \n    // Para fotos, buscar por extensión\n    if (!file && doc.isPhoto) {\n      file = files.find(f => /\\.(jpe?g|png)$/i.test(f.name || ''));\n    }\n  }\n  \n  if (!file) {\n    missing.push({\n      docKey: doc.key,\n      reason: `Documento faltante: ${doc.key}`\n    });\n  } else {\n    results.push({\n      docKey: doc.key,\n      file,\n      docConfig: doc,\n      nombres,\n      apellidos,\n      correo\n    });\n  }\n}\n\n// Retornar documentos encontrados para validar\nconst output = results.map(item => ({ json: item }));\n\n// Log para debugging\nconsole.log(`Documentos encontrados: ${results.length}`);\nconsole.log(`Documentos faltantes: ${missing.length}`);\nif (missing.length > 0) {\n  console.log('Faltantes:', missing.map(m => m.docKey).join(', '));\n}\n\nreturn output;"
+      },
+      "id": "39de4bae-703a-48e7-82aa-b61069baf8b4",
+      "name": "Validate Documents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "docKey",
+        "include": "selectedOtherFields",
+        "fieldsToInclude": "file,docConfig,nombres,apellidos,correo",
+        "options": {}
+      },
+      "id": "932eb5e7-8e51-4314-96a5-d4f5f8918d0d",
+      "name": "Item Lists - Split by Document",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        448,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "pdf-condition",
+              "leftValue": "={{ $json.docConfig.isPhoto }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3c8f83fd-a7ba-4c17-a69a-35f07b16ca9b",
+      "name": "IF - Is PDF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        688,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "photo-condition",
+              "leftValue": "={{ $json.docConfig.isPhoto }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4fd29409-48b8-469d-9ffc-466c8d67032b",
+      "name": "IF - Is Photo",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        688,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": "={{ $json.file.id }}",
+        "options": {}
+      },
+      "id": "63a3c806-b120-45f6-a5ca-2fabe9b5289f",
+      "name": "Download PDF",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        912,
+        128
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "kW52GePU503movBb",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": "={{ $json.file.id }}",
+        "options": {}
+      },
+      "id": "eef2e404-c64f-4484-ac6d-41ecd040d87b",
+      "name": "Download Photo",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        912,
+        416
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "kW52GePU503movBb",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construir request para Document AI - Procesar todos los items\nfunction getBase64FromBinary(itemIndex = 0) {\n  const items = $items();\n  const currentItem = items[itemIndex];\n  \n  // Intento 1: Buscar en el binario del item actual\n  if (currentItem.binary && typeof currentItem.binary === 'object') {\n    const keys = Object.keys(currentItem.binary);\n    for (const key of keys) {\n      const binary = currentItem.binary[key];\n      if (binary && binary.data) {\n        console.log(`Item ${itemIndex}: Encontrado binario en binary['${key}']`);\n        return binary.data;\n      }\n    }\n  }\n  \n  // Intento 2: Buscar en todos los items de entrada\n  const inputItems = $input.all();\n  for (const item of inputItems) {\n    if (item.binary && typeof item.binary === 'object') {\n      const keys = Object.keys(item.binary);\n      for (const key of keys) {\n        const binary = item.binary[key];\n        if (binary && binary.data) {\n          console.log(`Item ${itemIndex}: Encontrado binario en input item binary['${key}']`);\n          return binary.data;\n        }\n      }\n    }\n  }\n  \n  // Intento 3: Buscar específicamente en el nodo Download PDF\n  try {\n    const downloadNodes = $('Download PDF').all();\n    if (downloadNodes[itemIndex] && downloadNodes[itemIndex].binary) {\n      const keys = Object.keys(downloadNodes[itemIndex].binary);\n      for (const key of keys) {\n        const binary = downloadNodes[itemIndex].binary[key];\n        if (binary && binary.data) {\n          console.log(`Item ${itemIndex}: Encontrado binario en Download PDF binary['${key}']`);\n          return binary.data;\n        }\n      }\n    }\n  } catch (e) {\n    console.log(`Item ${itemIndex}: No se pudo acceder al nodo Download PDF:`, e.message);\n  }\n  \n  throw new Error(`Item ${itemIndex}: No se encontró binario base64 del PDF para ${currentItem.json?.docKey || 'documento'}`);\n}\n\n// Procesar todos los items de entrada\nconst items = $items();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  try {\n    const base64 = getBase64FromBinary(i);\n    \n    results.push({\n      json: {\n        request: {\n          rawDocument: {\n            content: base64,\n            mimeType: 'application/pdf'\n          }\n        },\n        docKey: item.json.docKey,\n        docConfig: item.json.docConfig,\n        nombres: item.json.nombres,\n        apellidos: item.json.apellidos,\n        correo: item.json.correo\n      }\n    });\n    \n    console.log(`Procesado exitosamente: ${item.json.docKey}`);\n  } catch (error) {\n    console.log(`Error procesando ${item.json.docKey}:`, error.message);\n    // Opcional: agregar item con error o saltarlo\n  }\n}\n\nconsole.log(`Procesados ${results.length} documentos de ${items.length} totales`);\nreturn results;"
+      },
+      "id": "10af2005-b7cb-4fd6-a7f7-c3d49e7f8738",
+      "name": "Build DocAI Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://us-documentai.googleapis.com/v1/projects/478244911399/locations/us/processors/f7439ed85d11a95b:process",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ab60ddcb-9585-4501-9e1d-bc118e325f06",
+      "name": "Document AI - Process PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1376,
+        128
+      ],
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "FjW152azrPheYhqk",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analizar resultados del OCR - Procesar todos los items\nconst config = $('Config Centralizada').first().json.config;\nconst buildDocAIItems = $('Build DocAI Request').all();\nconst currentItems = $items();\n\nconst results = [];\n\nfor (let i = 0; i < currentItems.length; i++) {\n  const currentItem = currentItems[i];\n  const docData = buildDocAIItems[i]?.json;\n  \n  if (!docData) {\n    console.log(`No se encontraron datos de Build DocAI Request para item ${i}`);\n    continue;\n  }\n  \n  const { docKey, docConfig, nombres, apellidos } = docData;\n\n  // Extraer texto del OCR\n  let text = '';\n  if (currentItem.json.document && typeof currentItem.json.document.text === 'string') {\n    text = currentItem.json.document.text;\n  }\n  text = (text || '').replace(/\\s+/g, ' ').trim();\n\n  const words = text ? text.split(' ').length : 0;\n  const chars = text.length;\n\n  // Validaciones\n  const issues = [];\n\n  // 1. Legibilidad básica\n  const isLegible = words >= config.validation.minWords && chars >= config.validation.minChars;\n  if (!isLegible) {\n    issues.push(`Documento ilegible (${words} palabras, ${chars} caracteres)`);\n  }\n\n  // 2. Palabras clave\n  let hasKeywords = true;\n  if (docConfig.keywords && docConfig.keywords.length > 0 && text) {\n    hasKeywords = docConfig.keywords.some(keyword => \n      text.toUpperCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').includes(keyword.toUpperCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, ''))\n    );\n    if (!hasKeywords) {\n      issues.push('Contenido no corresponde al documento esperado');\n    }\n  }\n\n  // 3. Validación de nombre (para documentos específicos)\n  let hasName = true;\n  if (docConfig.needsName && text) {\n    const nameTokens = (nombres + ' ' + apellidos).trim().split(/\\s+/).filter(Boolean);\n    hasName = nameTokens.some(token => \n      text.toUpperCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').includes(token.toUpperCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, ''))\n    );\n    if (!hasName) {\n      issues.push('No se encontró el nombre del estudiante en el documento');\n    }\n  }\n\n  // 4. Validación de firma (para actas y tratamiento de datos)\n  let hasSignature = true;\n  if (docConfig.needsSignature && text) {\n    const upperText = text.toUpperCase();\n    const firmaIndex = upperText.indexOf('FIRMA');\n    \n    if (firmaIndex === -1) {\n      hasSignature = false;\n      issues.push('No se detectó área de firma');\n    } else {\n      // Verificar que hay contenido después de \"FIRMA\"\n      const afterFirma = upperText.slice(firmaIndex + 5, firmaIndex + 200);\n      const hasContentAfterFirma = /[A-ZÁÉÍÓÚÑ]{3,}/.test(afterFirma);\n      \n      if (!hasContentAfterFirma) {\n        hasSignature = false;\n        issues.push('No se detectó firma válida');\n      }\n    }\n  }\n\n  const isValid = issues.length === 0;\n\n  results.push({\n    json: {\n      docKey,\n      isValid,\n      issues,\n      details: {\n        isLegible,\n        hasKeywords,\n        hasName,\n        hasSignature,\n        words,\n        chars\n      }\n    }\n  });\n  \n  console.log(`Procesado OCR para: ${docKey}, válido: ${isValid}`);\n}\n\nconsole.log(`Procesados ${results.length} documentos OCR`);\nreturn results;"
+      },
+      "id": "6ae99519-464c-4de2-ae3b-158ad03ec469",
+      "name": "Parse OCR Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "resize",
+        "width": 1024,
+        "height": 1024,
+        "resizeOption": "ignoreAspectRatio",
+        "options": {}
+      },
+      "id": "fc20816f-eed8-4e20-bd0a-566cc154d7e8",
+      "name": "Resize Photo",
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Evalúa si la imagen es válida como foto para carnet estudiantil.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Eres un asistente que valida si una imagen sirve como foto para un carnet estudiantil. Responde ÚNICAMENTE con un objeto JSON válido.\n\nCRITERIOS MÍNIMOS:\n1) Exactamente UNA persona humana\n2) Fondo BLANCO y liso\n3) Rostro de frente, ojos abiertos y visibles\n4) En color, nítida, sin filtros\n5) Encuadre tipo retrato (cabeza y hombros)\n6) Iluminación uniforme\n\nResponde SOLO con este formato JSON (sin texto adicional):\n{\n  \"is_valid\": true/false,\n  \"description\": \"descripción breve de la imagen\",\n  \"issues\": [\"lista de problemas encontrados\"]\n}"
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary"
+            }
+          ]
+        }
+      },
+      "id": "0bdec900-ca07-4e05-b650-e4ea5c11a700",
+      "name": "Validate Photo with AI",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1312,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-flash-latest",
+        "options": {}
+      },
+      "id": "0c9c8cd5-b6ad-4486-9443-c4606e705556",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        592
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zUmNTrfvnlf6DRgQ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analizar resultados de validación de foto\nfunction calculateFileSize() {\n  // Intento 1: Buscar en el binario del item actual\n  if ($binary && typeof $binary === 'object') {\n    const keys = Object.keys($binary);\n    for (const key of keys) {\n      const binary = $binary[key];\n      if (binary && binary.data) {\n        const base64 = binary.data;\n        const padding = base64.endsWith('==') ? 2 : (base64.endsWith('=') ? 1 : 0);\n        console.log(`Calculando tamaño desde $binary['${key}']`);\n        return Math.floor((base64.length * 3) / 4) - padding;\n      }\n    }\n  }\n  \n  // Intento 2: Buscar en todos los items de entrada\n  const inputItems = $input.all();\n  for (const item of inputItems) {\n    if (item.binary && typeof item.binary === 'object') {\n      const keys = Object.keys(item.binary);\n      for (const key of keys) {\n        const binary = item.binary[key];\n        if (binary && binary.data) {\n          const base64 = binary.data;\n          const padding = base64.endsWith('==') ? 2 : (base64.endsWith('=') ? 1 : 0);\n          console.log(`Calculando tamaño desde input item binary['${key}']`);\n          return Math.floor((base64.length * 3) / 4) - padding;\n        }\n      }\n    }\n  }\n  \n  // Intento 3: Buscar en el nodo Download Photo\n  try {\n    const downloadNode = $('Download Photo').first();\n    if (downloadNode && downloadNode.binary) {\n      const keys = Object.keys(downloadNode.binary);\n      for (const key of keys) {\n        const binary = downloadNode.binary[key];\n        if (binary && binary.data) {\n          const base64 = binary.data;\n          const padding = base64.endsWith('==') ? 2 : (base64.endsWith('=') ? 1 : 0);\n          console.log(`Calculando tamaño desde Download Photo binary['${key}']`);\n          return Math.floor((base64.length * 3) / 4) - padding;\n        }\n      }\n    }\n  } catch (e) {\n    console.log('No se pudo acceder al nodo Download Photo:', e.message);\n  }\n  \n  console.log('No se encontró imagen binaria para calcular tamaño');\n  return 0;\n}\n\n// Obtener datos del contexto\nconst docData = $('Download Photo').first().json;\nconst docConfig = docData.docConfig;\nconst size = calculateFileSize();\n\n// Parsear respuesta de Gemini (viene como texto)\nlet validation = { is_valid: false, description: 'Error parsing AI response', issues: ['Could not parse AI response'] };\n\ntry {\n  let aiText = '';\n  \n  // La respuesta puede venir en diferentes formatos\n  if (typeof $json === 'string') {\n    aiText = $json;\n  } else if ($json.text) {\n    aiText = $json.text;\n  } else if ($json.content) {\n    aiText = $json.content;\n  } else if ($json.output) {\n    aiText = typeof $json.output === 'string' ? $json.output : JSON.stringify($json.output);\n  } else {\n    aiText = JSON.stringify($json);\n  }\n  \n  console.log('AI Response text:', aiText);\n  \n  // Buscar JSON en la respuesta (puede estar envuelto en texto)\n  const jsonMatch = aiText.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    validation = JSON.parse(jsonMatch[0]);\n    console.log('Parsed validation:', validation);\n  } else {\n    console.log('No JSON found in AI response');\n  }\n} catch (e) {\n  console.log('Error parsing AI response:', e.message);\n  console.log('Raw AI response:', $json);\n}\n\nconst issues = [];\n\n// Validar tamaño mínimo\nconst minSize = docConfig.minSizeBytes || 15000;\nif (size < minSize) {\n  issues.push(`Imagen demasiado pequeña (${size} bytes, mínimo ${minSize})`);\n}\n\n// Validar resultado de IA\nif (!validation.is_valid) {\n  if (validation.issues && Array.isArray(validation.issues)) {\n    issues.push(...validation.issues);\n  } else {\n    issues.push('Imagen no cumple criterios para foto de carnet');\n  }\n}\n\nconst isValid = issues.length === 0;\n\nreturn [{\n  json: {\n    docKey: docData.docKey,\n    isValid,\n    issues,\n    details: {\n      size,\n      minSize,\n      aiValidation: validation\n    }\n  }\n}];"
+      },
+      "id": "bd8c0556-9f5e-4672-a98e-599e6218f328",
+      "name": "Parse Photo Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        416
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f7a92317-ca56-4c25-abab-4bf797bf46dc",
+      "name": "Merge All Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1824,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generar reporte final consolidado\nconst validationResults = $items().map(item => item.json);\n\n// Obtener datos del estudiante desde el contexto del flujo\nlet studentData = {};\ntry {\n  studentData = $('Process Student Data').first().json;\n} catch (e) {\n  console.log('No se pudo obtener datos del estudiante:', e.message);\n  studentData = { nombres: '', apellidos: '', correo: '' };\n}\n\n// Deduplicar resultados por docKey (tomar el último resultado para cada documento)\nconst uniqueResults = [];\nconst seenDocs = new Set();\nfor (let i = validationResults.length - 1; i >= 0; i--) {\n  const result = validationResults[i];\n  if (!seenDocs.has(result.docKey)) {\n    uniqueResults.unshift(result);\n    seenDocs.add(result.docKey);\n  }\n}\n\n// Calcular documentos faltantes comparando requeridos vs encontrados\nconst requiredDocs = studentData.requiredDocs || [];\nconst foundDocs = uniqueResults.map(r => r.docKey);\nconst missing = requiredDocs\n  .filter(doc => !foundDocs.includes(doc.key))\n  .map(doc => ({ docKey: doc.key, reason: `Documento faltante: ${doc.key}` }));\n\n// Procesar resultados únicos\nconst failed = uniqueResults.filter(result => !result.isValid);\nconst passed = uniqueResults.filter(result => result.isValid);\n\n// Generar observaciones\nconst observations = [];\n\nif (missing.length > 0) {\n  const missingDocs = missing.map(m => m.docKey).join(', ');\n  observations.push(`Documentos faltantes: ${missingDocs}`);\n}\n\nif (failed.length > 0) {\n  observations.push('Documentos con problemas:');\n  failed.forEach(result => {\n    const issues = result.issues.join('; ');\n    observations.push(`- ${result.docKey}: ${issues}`);\n  });\n}\n\n// Determinar estado final\nconst isComplete = missing.length === 0 && failed.length === 0;\nconst status = isComplete ? 'Completo' : 'Pendiente corrección';\nconst observationsText = observations.length > 0 ? observations.join('\\n') : 'Todos los documentos verificados correctamente';\n\n// Preparar lista de problemas para el correo\nconst problemsForEmail = [];\nif (missing.length > 0) {\n  problemsForEmail.push(`• Documentos faltantes: ${missing.map(m => m.docKey).join(', ')}`);\n}\nfailed.forEach(result => {\n  problemsForEmail.push(`• ${result.docKey}: ${result.issues.join('; ')}`);\n});\n\nconsole.log(`Resumen: ${uniqueResults.length} documentos procesados, ${passed.length} válidos, ${failed.length} con problemas, ${missing.length} faltantes`);\n\nreturn [{\n  json: {\n    status,\n    observations: observationsText,\n    isComplete,\n    nombres: studentData.nombres || '',\n    apellidos: studentData.apellidos || '',\n    correo: studentData.correo || '',\n    problems: problemsForEmail.join('\\n'),\n    summary: {\n      total: uniqueResults.length + missing.length,\n      passed: passed.length,\n      failed: failed.length,\n      missing: missing.length\n    }\n  }\n}];"
+      },
+      "id": "991e47fc-b173-40f1-ac83-563ce7965dc7",
+      "name": "Generate Final Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1irpTXy8D2oysdMdzdaxf9Zk9SSEDtENSFxDAum6F1wM",
+          "mode": "list",
+          "cachedResultName": "Registro de Matrículas"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Registro de Matrículas"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Estado ": "={{ $json.status }}",
+            "Observaciones": "={{ $json.observations }}",
+            "row_number": 0,
+            "Apellidos": "={{ $json.apellidos }}"
+          },
+          "matchingColumns": [
+            "Apellidos"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Nombres",
+              "displayName": "Nombres",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Apellidos",
+              "displayName": "Apellidos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Correo",
+              "displayName": "Correo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Dirección",
+              "displayName": "Dirección",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Teléfono",
+              "displayName": "Teléfono",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Fecha de Nacimiento",
+              "displayName": "Fecha de Nacimiento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Tipo de Programa",
+              "displayName": "Tipo de Programa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Enlace Acta",
+              "displayName": "Enlace Acta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Enlace Identidad",
+              "displayName": "Enlace Identidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Enlace Salud",
+              "displayName": "Enlace Salud",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Enlace Diploma",
+              "displayName": "Enlace Diploma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Enlace Foto",
+              "displayName": "Enlace Foto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Enlace ICFES",
+              "displayName": "Enlace ICFES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Enlace Registro Civil",
+              "displayName": "Enlace Registro Civil",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Enlace Trat. Datos",
+              "displayName": "Enlace Trat. Datos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Estado ",
+              "displayName": "Estado ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Observaciones",
+              "displayName": "Observaciones",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d1f48db1-6c14-4262-b91b-1a38e3fe996c",
+      "name": "Update Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2192,
+        256
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "FdAtUHGycZGjic4B",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "should-send-email",
+              "leftValue": "={{ $('Generate Final Report').item.json.isComplete }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a82962a7-c237-4126-8bbd-6304e7e7ae3f",
+      "name": "IF - Send Email",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2368,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Generate Final Report').item.json.correo }}",
+        "subject": "={{ $('Config Centralizada').first().json.config.email.subject }}",
+        "emailType": "text",
+        "message": "=Estimado(a) {{ $('Generate Final Report').item.json.nombres }} {{ $('Generate Final Report').item.json.apellidos }},\n\nTras revisar los documentos que cargó para el proceso de matrícula, encontramos incidencias que requieren corrección:\n{{ $('Generate Final Report').item.json.problems }}\n\nPor favor, vuelva a cargar los documentos correspondientes mediante el mismo formulario. Le recomendamos verificar que:\n• El archivo sea el solicitado (tipo correcto).\n• El contenido sea legible (sin borrosidad) y completo.\n• El formato sea PDF (salvo la fotografía: JPG o PNG).\n\nAgradecemos realizar el reenvío a la mayor brevedad para no retrasar su matrícula.\n\nSaludos cordiales,\n\nEquipo de Matrículas SENA.",
+        "options": {
+          "ccList": "={{ $('Config Centralizada').first().json.config.email.cc }}"
+        }
+      },
+      "id": "b0a742a6-8be4-472b-a179-a87278a0908b",
+      "name": "Send Email Notification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        2592,
+        256
+      ],
+      "webhookId": "483a4aaf-4453-46e7-a053-7456e408711c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fVtX4KjKF3vgsRsR",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Wait for Uploads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Uploads": {
+      "main": [
+        [
+          {
+            "node": "Config Centralizada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Centralizada": {
+      "main": [
+        [
+          {
+            "node": "Parse Folder Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Folder Name": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Lookup Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Lookup Student": {
+      "main": [
+        [
+          {
+            "node": "Process Student Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Student Data": {
+      "main": [
+        [
+          {
+            "node": "Get Drive Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Drive Files": {
+      "main": [
+        [
+          {
+            "node": "Validate Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Documents": {
+      "main": [
+        [
+          {
+            "node": "Item Lists - Split by Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Item Lists - Split by Document": {
+      "main": [
+        [
+          {
+            "node": "IF - Is PDF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF - Is Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Is PDF": {
+      "main": [
+        [
+          {
+            "node": "Download PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Is Photo": {
+      "main": [
+        [
+          {
+            "node": "Download Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PDF": {
+      "main": [
+        [
+          {
+            "node": "Build DocAI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Photo": {
+      "main": [
+        [
+          {
+            "node": "Resize Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build DocAI Request": {
+      "main": [
+        [
+          {
+            "node": "Document AI - Process PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document AI - Process PDF": {
+      "main": [
+        [
+          {
+            "node": "Parse OCR Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OCR Results": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resize Photo": {
+      "main": [
+        [
+          {
+            "node": "Validate Photo with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Photo with AI": {
+      "main": [
+        [
+          {
+            "node": "Parse Photo Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Photo Results": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge All Results": {
+      "main": [
+        [
+          {
+            "node": "Generate Final Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Final Report": {
+      "main": [
+        [
+          {
+            "node": "Update Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheets": {
+      "main": [
+        [
+          {
+            "node": "IF - Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Send Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Validate Photo with AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "90f7ca99-d2be-4bbc-8a7d-ddcc5eac99ed",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d5858449311b32c604a2dec832ce24e7a764079a87dd400de6a8a58aa5af0702"
+  },
+  "id": "hPpnvZSLjHeZ2hQD",
+  "tags": []
+}

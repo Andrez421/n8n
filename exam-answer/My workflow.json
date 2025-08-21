@@ -1,0 +1,401 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1lSpXNj5LQ5b8NiXfwREZQLaTlYkJ5Rn3",
+          "mode": "list",
+          "cachedResultName": "Ai_exam-answer",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1lSpXNj5LQ5b8NiXfwREZQLaTlYkJ5Rn3"
+        },
+        "event": "fileUpdated",
+        "options": {}
+      },
+      "id": "0c79bc25-ca54-4349-9a84-c2cc73940ec1",
+      "name": "Google Drive Trigger",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1216,
+        -144
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "H3fqwTFhSg1quRSR",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": "={{$json[\"fileId\"] ? $json[\"fileId\"] : $json[\"id\"]}}",
+        "options": {}
+      },
+      "id": "84794d14-b00d-4973-85a2-18f1d27a0efd",
+      "name": "Google Drive Download",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -976,
+        -144
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "H3fqwTFhSg1quRSR",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "setAllData": false,
+        "destinationKey": "imageBase64",
+        "options": {}
+      },
+      "id": "6c1ba1d9-cd23-4b74-bfe3-b3d654647f79",
+      "name": "Binary → Base64",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1.1,
+      "position": [
+        -752,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const item = items[0];\nconst base64 = item.json.imageBase64;\nconst mime = (item.binary && item.binary.data && item.binary.data.mimeType) ? item.binary.data.mimeType : 'image/png';\nitem.json.base64Image = `data:${mime};base64,${base64}`;\nreturn items;"
+      },
+      "id": "99f5ad4b-5d68-4644-9834-79c2f5eb7688",
+      "name": "Prepare OCR Payload",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "K87420700788957"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "da5ba380-5e48-4db8-9507-a078ef16d128",
+      "name": "OCR Space",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -336,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const res = items[0].json;\nconst parsed = Array.isArray(res.ParsedResults) ? res.ParsedResults : [];\nconst text = (parsed[0] && parsed[0].ParsedText) ? parsed[0].ParsedText : '';\nreturn [{ json: { ocrText: text } }];"
+      },
+      "id": "ae46e66c-6999-4fb0-9524-52fc27e786e2",
+      "name": "Extract OCR Text",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "chatModel": "gpt-5-mini",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Eres un asistente que analiza texto OCR de cuestionarios (matemáticas, lectura crítica, ciencias sociales, ciencias naturales, etc.) y devuelve únicamente un listado en el formato 'n. letra' sin explicaciones ni texto adicional."
+            },
+            {
+              "content": "Texto OCR:\n{{$json.ocrText}}\n\nInstrucciones:\n- Identifica cada pregunta y sus opciones.\n- Elige la mejor respuesta.\n- Devuelve solo el listado final, una línea por pregunta, con el formato exacto:\n1. a\n2. b\n3. c\n..."
+            }
+          ]
+        },
+        "options": {},
+        "requestOptions": {}
+      },
+      "id": "f588f011-b51d-4759-bc92-2f37a5f4dec7",
+      "name": "OpenAI - Analizar preguntas",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.1,
+      "position": [
+        80,
+        -144
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "w57u6Kx459q3TL2G",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const ai = items[0].json;\nconst content = ai.choices?.[0]?.message?.content ?? ai.text ?? '';\nreturn [{ json: { answerList: content.trim() } }];"
+      },
+      "id": "e4811269-8cfd-491d-a2c1-2e44ec6de5f0",
+      "name": "Formatear listado",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        304,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const lines = items.map(i => (i.json.answerList || '').trim()).filter(Boolean);\nreturn [{ json: { finalList: lines.join('\n') } }];"
+      },
+      "id": "ee7bdd30-f7d9-4e33-886b-f20c7b3a5eb4",
+      "name": "Consolidar listados",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        512,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "1555092781",
+        "text": "={{$json.finalList}}",
+        "additionalFields": {}
+      },
+      "id": "6a6d0577-5442-4dd4-983d-ddac9201fa1b",
+      "name": "Telegram - Enviar",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        736,
+        -336
+      ],
+      "webhookId": "90d1bd6e-c2ba-41e1-b68e-19dc3a4ab164",
+      "credentials": {
+        "telegramApi": {
+          "id": "AFDPDhHCTXVdazI5",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "sebas931204@gmail.com",
+        "subject": "Resultados AI Exam Answer",
+        "message": "={{$json.finalList}}",
+        "options": {}
+      },
+      "id": "d7fd1c4e-618e-4263-bdc9-82654ed1daf9",
+      "name": "Gmail - Enviar",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        48
+      ],
+      "webhookId": "6126a398-8679-445a-834b-fe171c7a7dda",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CniNokNQx65Ut0pO",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "jsonToBinary",
+        "convertAllData": false,
+        "sourceKey": "finalList",
+        "options": {}
+      },
+      "id": "c02850c1-c2e1-4e75-9fa3-0bd4cdb67e9f",
+      "name": "JSON → Binary",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "fileName": "/data/ai-exam-answers.txt",
+        "options": {}
+      },
+      "id": "2ea8ba99-c964-49fc-ab9f-90df09796afe",
+      "name": "Guardar a archivo",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        -144
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Google Drive Download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive Download": {
+      "main": [
+        [
+          {
+            "node": "Binary → Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Binary → Base64": {
+      "main": [
+        [
+          {
+            "node": "Prepare OCR Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare OCR Payload": {
+      "main": [
+        [
+          {
+            "node": "OCR Space",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR Space": {
+      "main": [
+        [
+          {
+            "node": "Extract OCR Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract OCR Text": {
+      "main": [
+        [
+          {
+            "node": "OpenAI - Analizar preguntas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Analizar preguntas": {
+      "main": [
+        [
+          {
+            "node": "Formatear listado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear listado": {
+      "main": [
+        [
+          {
+            "node": "Consolidar listados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar listados": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail - Enviar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "JSON → Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON → Binary": {
+      "main": [
+        [
+          {
+            "node": "Guardar a archivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "880ac179-dafd-430c-9003-496cfc172a45",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7d3ce94020e6d84a807d04d473a5273af865030a272b3c70d8186c25ba87c33f"
+  },
+  "id": "fMPDzWpYS9DGIuaS",
+  "tags": []
+}

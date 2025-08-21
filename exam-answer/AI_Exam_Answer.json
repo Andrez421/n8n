@@ -1,0 +1,399 @@
+{
+  "name": "AI Exam Answer",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerOn": "specificFolder",
+        "event": "fileCreated",
+        "folderToWatch": {
+          "__rl": true,
+          "mode": "id",
+          "value": "FOLDER_ID_PLACEHOLDER"
+        },
+        "options": {
+          "fileType": "image"
+        }
+      },
+      "id": "1",
+      "name": "Google Drive Trigger",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -40
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "Google Drive OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": "={{$json[\"fileId\"] ? $json[\"fileId\"] : $json[\"id\"]}}",
+        "options": {
+          "downloadShared": true
+        }
+      },
+      "id": "2",
+      "name": "Google Drive Download",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -380,
+        -40
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "Google Drive OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "binaryToJson",
+        "setAllData": false,
+        "sourceKey": "data",
+        "destinationKey": "imageBase64"
+      },
+      "id": "3",
+      "name": "Binary → Base64",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1.1,
+      "position": [
+        -160,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const item = items[0];\nconst base64 = item.json.imageBase64;\nconst mime = (item.binary && item.binary.data && item.binary.data.mimeType) ? item.binary.data.mimeType : 'image/png';\nitem.json.base64Image = `data:${mime};base64,${base64}`;\nreturn items;"
+      },
+      "id": "4",
+      "name": "Prepare OCR Payload",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        40,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.ocr.space/parse/image",
+        "method": "POST",
+        "sendBody": true,
+        "sendHeaders": true,
+        "contentType": "form-urlencoded",
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "base64Image",
+              "value": "={{$json.base64Image}}"
+            },
+            {
+              "name": "OCREngine",
+              "value": "2"
+            },
+            {
+              "name": "language",
+              "value": "spa"
+            }
+          ]
+        },
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "apikey",
+              "value": "={{$env.OCR_SPACE_API_KEY || 'YOUR_OCRSPACE_API_KEY'}}"
+            }
+          ]
+        }
+      },
+      "id": "5",
+      "name": "OCR Space",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const res = items[0].json;\nconst parsed = Array.isArray(res.ParsedResults) ? res.ParsedResults : [];\nconst text = (parsed[0] && parsed[0].ParsedText) ? parsed[0].ParsedText : '';\nreturn [{ json: { ocrText: text } }];"
+      },
+      "id": "6",
+      "name": "Extract OCR Text",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        460,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "complete",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Eres un asistente que analiza texto OCR de cuestionarios (matemáticas, lectura crítica, ciencias sociales, ciencias naturales, etc.) y devuelve únicamente un listado en el formato 'n. letra' sin explicaciones ni texto adicional."
+            },
+            {
+              "role": "user",
+              "content": "={{'Texto OCR:\\n' + String($json.ocrText || '') + '\\n\\nInstrucciones:\\n- Identifica cada pregunta y sus opciones.\\n- Elige la mejor respuesta.\\n- Devuelve solo el listado final, una línea por pregunta, con el formato exacto:\\n1. a\\n2. b\\n3. c\\n...'}}"
+            }
+          ]
+        },
+        "maxTokens": 512
+      },
+      "id": "7",
+      "name": "OpenAI - Analizar preguntas",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.1,
+      "position": [
+        680,
+        -40
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const ai = items[0].json;\nconst content = ai.choices?.[0]?.message?.content ?? ai.text ?? '';\nreturn [{ json: { answerList: content.trim() } }];"
+      },
+      "id": "8",
+      "name": "Formatear listado",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        900,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const lines = items.map(i => (i.json.answerList || '').trim()).filter(Boolean);\nreturn [{ json: { finalList: lines.join('\n') } }];"
+      },
+      "id": "8b",
+      "name": "Consolidar listados",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "TELEGRAM_CHAT_ID",
+        "additionalFields": {},
+        "text": "={{$json.finalList}}"
+      },
+      "id": "9",
+      "name": "Telegram - Enviar",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1140,
+        -160
+      ],
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "DESTINATARIO@correo.com",
+        "subject": "Resultados AI Exam Answer",
+        "message": "={{$json.finalList}}"
+      },
+      "id": "10",
+      "name": "Gmail - Enviar",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1140,
+        80
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "jsonToBinary",
+        "convertAllData": false,
+        "sourceKey": "finalList",
+        "destinationKey": "data"
+      },
+      "id": "11",
+      "name": "JSON → Binary",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "fileName": "/data/ai-exam-answers.txt",
+        "dataPropertyName": "data"
+      },
+      "id": "12",
+      "name": "Guardar a archivo",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        -40
+      ]
+    }
+  ],
+  "connections": {
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Google Drive Download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive Download": {
+      "main": [
+        [
+          {
+            "node": "Binary → Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Binary → Base64": {
+      "main": [
+        [
+          {
+            "node": "Prepare OCR Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare OCR Payload": {
+      "main": [
+        [
+          {
+            "node": "OCR Space",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR Space": {
+      "main": [
+        [
+          {
+            "node": "Extract OCR Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract OCR Text": {
+      "main": [
+        [
+          {
+            "node": "OpenAI - Analizar preguntas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Analizar preguntas": {
+      "main": [
+        [
+          {
+            "node": "Formatear listado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear listado": {
+      "main": [
+        [
+          {
+            "node": "Consolidar listados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar listados": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail - Enviar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "JSON → Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON → Binary": {
+      "main": [
+        [
+          {
+            "node": "Guardar a archivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "staticData": null,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  }
+}

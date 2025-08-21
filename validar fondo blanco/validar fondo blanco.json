@@ -1,0 +1,433 @@
+{
+  "name": "validar fondo blanco",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b6749a9f-8051-4b25-b182-895d47cce486",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [
+        -256,
+        224
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "returnAll": true,
+        "filter": {
+          "driveId": {
+            "mode": "id",
+            "value": "My Drive"
+          },
+          "folderId": {
+            "mode": "id",
+            "value": "152QRsdABEUuEEVcjpZ9ULHRQde6YOXAd"
+          },
+          "whatToSearch": "files",
+          "fileTypes": []
+        },
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "webViewLink"
+          ]
+        }
+      },
+      "id": "212dfe95-ead5-4c51-bb9a-2ac1d474baaa",
+      "name": "List Images in Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "position": [
+        112,
+        224
+      ],
+      "typeVersion": 3,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "H3fqwTFhSg1quRSR",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.mimeType }}",
+              "rightValue": "image/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith",
+                "rightType": "string"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5eb1293d-024f-4815-9782-e1f73aafb6a7",
+      "name": "Filter Images Only",
+      "type": "n8n-nodes-base.filter",
+      "position": [
+        272,
+        224
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        },
+        "options": {}
+      },
+      "id": "96cbd30c-b1f8-496b-83cb-d2ec2c97a5ce",
+      "name": "Download Photo",
+      "type": "n8n-nodes-base.googleDrive",
+      "position": [
+        432,
+        224
+      ],
+      "typeVersion": 3,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "H3fqwTFhSg1quRSR",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "resize",
+        "width": 1024,
+        "height": 1024,
+        "resizeOption": "ignoreAspectRatio",
+        "options": {}
+      },
+      "id": "ef1b4566-fef7-4b62-b527-d440833615f3",
+      "name": "Resize For AI (1024x1024)",
+      "type": "n8n-nodes-base.editImage",
+      "position": [
+        880,
+        224
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Evalúa si la imagen es válida como foto para carnet estudiantil.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Eres un asistente que valida si una imagen sirve como foto para un carnet estudiantil.\\n\\nCRITERIOS MÍNIMOS (APLICA TODOS):\\n1) Debe aparecer exactamente UNA persona humana. Rechaza si no hay personas o si hay más de una.\\n2) Fondo BLANCO y liso (blanco puro o casi blanco; tolera variaciones leves por iluminación). No debe haber objetos, estampados ni texto.\\n3) Rostro de frente, ojos abiertos y visibles, sin obstrucciones notables (sin gafas de sol, mascarilla, manos u objetos tapando la cara).\\n4) En color, nítida (en foco), sin filtros fuertes, sin desenfoques o ruido extremo.\\n5) Encuadre tipo retrato: cabeza y hombros visibles (no solo la frente o solo la cara parcial).\\n6) Iluminación uniforme; sombras duras en la cara o fondo no son aceptables.\\n\\nSalida estructurada: devuelve un objeto con las claves `is_valid` (boolean), `photo_description` (string) y `reasons` (array de strings), explicando por qué no cumple en caso de fallo. No inventes datos que no estén en la imagen."
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary"
+            }
+          ]
+        }
+      },
+      "id": "1f298e0a-f467-48f3-a7e8-4537e1db02c0",
+      "name": "Student ID Photo Validator",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        1072,
+        224
+      ],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"is_valid\": { \n      \"type\": \"boolean\",\n      \"description\": \"Indica si la imagen es válida para carnet estudiantil\"\n    },\n    \"photo_description\": { \n      \"type\": \"string\", \n      \"description\": \"Describe a la persona, objetos y el fondo de la imagen\"\n    },\n    \"reasons\": { \n      \"type\": \"array\", \n      \"items\": { \"type\": \"string\" },\n      \"description\": \"Lista de razones por las que la imagen no es válida (si aplica)\"\n    }\n  },\n  \"required\": [\"is_valid\", \"photo_description\", \"reasons\"]\n}"
+      },
+      "id": "d1f6e4b5-3d27-4684-a395-94f2371feaf5",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "position": [
+        1264,
+        384
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-pro-latest",
+        "options": {}
+      },
+      "id": "6c5089ad-5be1-44b8-a178-54ae6d499629",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [
+        1072,
+        384
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "kszLlTPJITHvdOAR",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "file_name",
+              "type": "string",
+              "value": "={{ $('Filter Images Only').item.json.name }}"
+            },
+            {
+              "id": "2",
+              "name": "file_id",
+              "type": "string",
+              "value": "={{ $('Filter Images Only').item.json.id }}"
+            },
+            {
+              "id": "3",
+              "name": "validation_result",
+              "type": "object",
+              "value": "={{ $json }}"
+            },
+            {
+              "id": "4",
+              "name": "processed_at",
+              "type": "string",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Prepare Results",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1456,
+        224
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener todos los resultados y pasarlos al siguiente nodo\nconst allResults = $input.all();\n\n// Retornar todos los resultados como un solo array\nreturn allResults.map(item => item.json);"
+      },
+      "id": "f1a2b3c4-d5e6-7890-1234-567890abcdef",
+      "name": "Aggregate All Results",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1664,
+        224
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener todos los resultados directamente\nconst results = $input.all();\nconst totalImages = results.length;\n\n// Inicializar contadores\nlet validImages = 0;\nlet invalidImages = 0;\n\n// Contar imágenes válidas e inválidas\nfor (const item of results) {\n  // Verificar si existe la estructura de datos correcta\n  if (item.json && item.json.validation_result && item.json.validation_result.output) {\n    if (item.json.validation_result.output.is_valid === true) {\n      validImages++;\n    } else if (item.json.validation_result.output.is_valid === false) {\n      invalidImages++;\n    }\n  }\n}\n\n// Crear el resumen final\nreturn [{\n  total_images_processed: totalImages,\n  valid_images: validImages,\n  invalid_images: invalidImages,\n  processing_completed_at: new Date().toISOString(),\n  summary: `Se procesaron ${totalImages} imágenes: ${validImages} válidas y ${invalidImages} no válidas`,\n  detailed_results: results.map(item => item.json)\n}];"
+      },
+      "id": "g2b3c4d5-e6f7-8901-2345-678901bcdefg",
+      "name": "Summary Report",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1856,
+        224
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## 1. Buscar imágenes en carpeta\\nEl flujo lista todas las imágenes en la carpeta de Google Drive especificada.\\n\\n## 2. Redimensionar a 1024x1024\\nCada imagen se redimensiona a 1024x1024 píxeles para procesamiento óptimo de IA.\\n\\n## 3. Validación masiva\\nTodas las imágenes se procesan automáticamente para validar fondo blanco.",
+        "height": 360,
+        "width": 640,
+        "color": 7
+      },
+      "id": "75cd8708-2881-4cd5-ada9-646ff2633bc6",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Procesamiento por lotes\\nCada imagen de la carpeta se procesa individualmente:\\n1. Se descarga la imagen\\n2. Se redimensiona\\n3. Se valida con IA\\n4. Se prepara el resultado final\\n\\nLos resultados incluyen: nombre del archivo, ID, resultado de validación y timestamp.",
+        "height": 420,
+        "width": 774,
+        "color": 7
+      },
+      "id": "5b0ff5a9-6e57-4f2b-95b7-c67a2cf4155c",
+      "name": "Sticky Note 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        720,
+        -32
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 4. Resumen final\\nEl flujo termina con un resumen que incluye:\\n- Total de imágenes procesadas\\n- Cantidad de fotos válidas\\n- Cantidad de fotos no válidas\\n- Timestamp de finalización\\n- Resumen en texto legible",
+        "height": 280,
+        "width": 520,
+        "color": 3
+      },
+      "id": "h3c4d5e6-f7g8-9012-3456-789012cdefgh",
+      "name": "Sticky Note 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1600,
+        -32
+      ],
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "List Images in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Images in Folder": {
+      "main": [
+        [
+          {
+            "node": "Filter Images Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Images Only": {
+      "main": [
+        [
+          {
+            "node": "Download Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Photo": {
+      "main": [
+        [
+          {
+            "node": "Resize For AI (1024x1024)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resize For AI (1024x1024)": {
+      "main": [
+        [
+          {
+            "node": "Student ID Photo Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Student ID Photo Validator": {
+      "main": [
+        [
+          {
+            "node": "Prepare Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Results": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Results": {
+      "main": [
+        [
+          {
+            "node": "Summary Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "main": [],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Student ID Photo Validator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "main": [],
+      "ai_outputParser": [
+        [
+          {
+            "node": "Student ID Photo Validator",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "896d3a9d-b4f4-4770-8a3a-2646e3dc4a73",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7d3ce94020e6d84a807d04d473a5273af865030a272b3c70d8186c25ba87c33f"
+  },
+  "id": "4zaauFbBHnpohRbG",
+  "tags": []
+}
